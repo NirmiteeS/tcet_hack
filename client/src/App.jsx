@@ -12,7 +12,7 @@ const App = () => {
             <Route path="/" element={<LandingPage />} />
             <Route path="/sign-in" element={<SignInPage />} />
             <Route path="/sign-up" element={<SignUpPage />} />
-            <Route path="/onboarding" element={<OnboardingPage />} />
+            {/* <Route path="/onboarding" element={<OnboardingPage />} /> */}
 
             {/* Private Nested Routes */}
             <Route path="/" element={<AppLayout />}>
