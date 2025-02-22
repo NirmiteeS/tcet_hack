@@ -1,0 +1,49 @@
+command,action,category,description
+# Application Commands
+open notepad,app notepad,application,Opens Notepad for text editing
+open calculator,app calc,application,Launches the Calculator application
+open camera,app microsoft.windows.camera:,application,Opens the Camera application
+open paint,app mspaint,application,Opens Microsoft Paint
+open command prompt,app cmd,application,Opens Command Prompt
+open task manager,app taskmgr,application,Opens Task Manager
+open file explorer,app explorer,application,Opens File Explorer
+open settings,app ms-settings:,application,Opens Windows Settings
+open control panel,app control,application,Opens Control Panel
+
+# Web Commands
+open google,web https://www.google.com,web,Opens Google Search
+open youtube,web https://www.youtube.com,web,Opens YouTube
+open gmail,web https://mail.google.com,web,Opens Gmail
+open github,web https://github.com,web,Opens GitHub
+open kaggle,web https://www.kaggle.com,web,Opens Kaggle for datasets
+search on google,search_google,web,Searches the spoken query on Google
+
+# Typing Mode Commands
+start typing,execute_typing,typing,Enables voice-to-text typing mode
+stop typing,disable_typing,typing,Disables voice-to-text typing mode
+delete last word,press_backspace,typing,Deletes the last word typed
+press enter,press_enter,typing,Presses Enter key
+press tab,press_tab,typing,Presses Tab key
+
+# Calculator Commands
+add,calculator_add,calculator,Performs addition
+subtract,calculator_subtract,calculator,Performs subtraction
+multiply,calculator_multiply,calculator,Performs multiplication
+divide,calculator_divide,calculator,Performs division
+equals,calculator_equals,calculator,Displays the calculation result
+
+# Camera Commands
+click photo,camera_click,camera,Takes a picture
+start recording,start_video,camera,Starts video recording
+stop recording,stop_video,camera,Stops video recording
+
+# Calendar & Scheduling Commands
+open calendar,app outlookcal:,calendar,Opens the calendar
+choose date,choose_date,calendar,Allows the user to pick a date
+add event,add_task,calendar,Adds an event to the calendar
+
+# System Commands
+close window,close_window,system,Closes the currently active window
+restart pc,restart_pc,system,Restarts the computer
+shut down pc,shutdown_pc,system,Shuts down the computer
+stop voice command,stop_voice,system,Stops the voice assistant system
