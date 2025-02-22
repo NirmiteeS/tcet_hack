@@ -12,9 +12,43 @@ import {
 } from "@/components/ui/dialog";
 import EnhancedWorkflow from '@/components/EnhancedWorkflow';
 
+
+
 const TaskList = ({ tasks }) => {
+    const sendTasksToNotion = async () => {
+      try {
+        const payload = {
+          databaseId: "19446fcb-6003-8170-974f-ee59405cd704",
+          tasks: tasks.map(({ title, assignee, dueDate, project, status }) => ({
+            title,
+            assignee,
+            dueDate,
+            project,
+            status,
+          })),
+        };
+  
+        const response = await fetch('http://localhost:3000/api/add-tasks', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+  
+        if (!response.ok) {
+          throw new Error('Failed to send tasks to Notion');
+        }
+  
+        alert('Tasks successfully sent to Notion!');
+      } catch (error) {
+        console.error('Error sending tasks to Notion:', error);
+        alert('Failed to send tasks to Notion');
+      }
+    };
+  
   return (
-    <div className="w-1/3 bg-white p-6 rounded-lg shadow-lg">
+    <div className="w-1/3 bg-white p-6 mt-7 rounded-lg shadow-lg">
       <h2 className="text-3xl font-bold mb-6 text-gray-800 text-center">Task List</h2>
       <div className="space-y-6">
         {tasks.map((task, index) => (
@@ -46,6 +80,9 @@ const TaskList = ({ tasks }) => {
           </Card>
         ))}
       </div>
+      <Button onClick={sendTasksToNotion} className="mt-6 w-full bg-blue-600 text-white hover:bg-blue-700">
+        Send Tasks to Notion
+      </Button>
     </div>
   );
 };
@@ -83,7 +120,9 @@ export default function WorkflowPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
+    <div className='flex '>
+      <div className='w-[20%]'></div>
+    <div className="right-0 w-[80%] min-h-screen bg-gray-100 p-8">
       <h1 className="text-4xl font-bold text-center mb-8 text-gray-800">Task Workflow Generator</h1>
       <div className='w-[70%] mx-auto text-center text-gray-600 mb-12'>
         Our tool helps you break down complex tasks into structured workflows, assigning responsibilities and setting deadlines for better productivity.
@@ -128,6 +167,7 @@ export default function WorkflowPage() {
           <TaskList tasks={tasks} />
         </div>
       )}
+    </div>
     </div>
   );
 }

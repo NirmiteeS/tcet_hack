@@ -628,3 +628,11 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+hide_menu_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    </style>
+    """
+st.markdown(hide_menu_style, unsafe_allow_html=True)
