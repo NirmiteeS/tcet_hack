@@ -14,8 +14,10 @@ from gtts import gTTS
 import tempfile
 import nest_asyncio
 from typing import List, Optional, Any
+from typing import Dict, Optional, Tuple
 import threading
-import queue
+import wave
+import pyaudio
 
 # Enable nested event loops
 nest_asyncio.apply()
@@ -32,6 +34,58 @@ GTTS_LANG_CODES = {
     'id': 'id', 'kn': 'kn', 'ml': 'ml', 'mr': 'mr', 'ne': 'ne', 'pl': 'pl',
     'ta': 'ta', 'te': 'te', 'th': 'th', 'tr': 'tr', 'ur': 'ur', 'vi': 'vi'
 }
+
+class AudioRecorder:
+    def __init__(self):
+        self.recording = False
+        self.audio_frames = []
+        self.stream = None
+        self.audio = None
+        self.thread = None
+
+    def start_recording(self):
+        self.recording = True
+        self.audio_frames = []
+        self.audio = pyaudio.PyAudio()
+        self.stream = self.audio.open(
+            format=pyaudio.paInt16,
+            channels=1,
+            rate=44100,
+            input=True,
+            frames_per_buffer=1024
+        )
+        self.thread = threading.Thread(target=self._record)
+        self.thread.start()
+
+    def stop_recording(self):
+        self.recording = False
+        if self.thread:
+            self.thread.join()
+        if self.stream:
+            self.stream.stop_stream()
+            self.stream.close()
+        if self.audio:
+            self.audio.terminate()
+        return self.save_recording()
+
+    def _record(self):
+        while self.recording:
+            data = self.stream.read(1024)
+            self.audio_frames.append(data)
+
+    def save_recording(self):
+        if not self.audio_frames:
+            return None
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:
+            wf = wave.open(tmp_file.name, 'wb')
+            wf.setnchannels(1)
+            wf.setsampwidth(self.audio.get_sample_size(pyaudio.paInt16))
+            wf.setframerate(44100)
+            wf.writeframes(b''.join(self.audio_frames))
+            wf.close()
+            return tmp_file.name
+
 
 class GeminiContextCache:
     def __init__(self):
@@ -221,9 +275,9 @@ Reference specific file contents where applicable. If unsure, state that informa
                 self.async_translate(text_to_translate, lang_code)
             )
             
-            # Generate TTS if enabled
+            # Always generate TTS for translation requests if language is supported
             audio_path = None
-            if st.session_state.get('enable_tts', False) and lang_code in GTTS_LANG_CODES:
+            if lang_code in GTTS_LANG_CODES:
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp_file:
                     tts = gTTS(translated.text, lang=GTTS_LANG_CODES[lang_code])
                     tts.save(tmp_file.name)
@@ -237,6 +291,78 @@ Reference specific file contents where applicable. If unsure, state that informa
         except Exception as e:
             logger.error(f"Translation error details: {str(e)}", exc_info=True)
             return {'text': f"Translation error: {str(e)}", 'audio_path': None}
+        
+
+class LanguagePipeline:
+    def __init__(self):
+        self.translator = Translator()
+        self.detected_lang = None
+        
+    async def detect_language(self, text: str) -> str:
+        """Detect the language of input text"""
+        try:
+            detection = await self.translator.detect(text)
+            return detection.lang
+        except Exception as e:
+            st.error(f"Language detection error: {str(e)}")
+            return 'en'  # Default to English on error
+            
+    async def translate_to_english(self, text: str, source_lang: str) -> str:
+        """Translate text to English if needed"""
+        if source_lang == 'en':
+            return text
+        try:
+            translation = await self.translator.translate(text, src=source_lang, dest='en')
+            return translation.text
+        except Exception as e:
+            st.error(f"Translation to English error: {str(e)}")
+            return text
+            
+    async def translate_response(self, text: str, target_lang: str) -> str:
+        """Translate response back to original language"""
+        if target_lang == 'en':
+            return text
+        try:
+            translation = await self.translator.translate(text, src='en', dest=target_lang)
+            return translation.text
+        except Exception as e:
+            st.error(f"Translation of response error: {str(e)}")
+            return text
+
+class EnhancedGeminiContextCache(GeminiContextCache):
+    def __init__(self):
+        super().__init__()
+        self.language_pipeline = LanguagePipeline()
+        
+    async def process_multilingual_query(self, prompt: str, chat_history: list, use_files: bool = False) -> Dict:
+        """Process queries in any language through the pipeline"""
+        try:
+            # Detect input language
+            source_lang = await self.language_pipeline.detect_language(prompt)
+            
+            # Translate to English if needed
+            english_prompt = await self.language_pipeline.translate_to_english(prompt, source_lang)
+            
+            # Get model response in English
+            english_response = self.query_model(english_prompt, chat_history, use_files)
+            
+            # Translate response back to original language
+            if source_lang != 'en':
+                translated_text = await self.language_pipeline.translate_response(
+                    english_response['text'], 
+                    source_lang
+                )
+                english_response['text'] = translated_text
+                
+            # Add language info to response
+            english_response['detected_language'] = LANGUAGES.get(source_lang, 'Unknown')
+            
+            return english_response
+            
+        except Exception as e:
+            error_msg = f"Pipeline error: {str(e)}"
+            st.error(error_msg)
+            return {'text': error_msg, 'audio_path': None, 'detected_language': 'Unknown'}
 
 def recognize_speech(audio_file):
     r = sr.Recognizer()
@@ -255,17 +381,67 @@ def safe_delete(file_path):
     except Exception as e:
         logger.warning(f"Could not delete file {file_path}: {str(e)}")
 
-def record_audio(audio_queue: queue.Queue, stop_recording: threading.Event):
-    """Record audio in a separate thread until stop signal is received"""
-    r = sr.Recognizer()
-    with sr.Microphone() as source:
-        while not stop_recording.is_set():
-            try:
-                audio = r.listen(source, phrase_time_limit=None)
-                audio_queue.put(audio)
-            except Exception as e:
-                logger.error(f"Error recording audio: {e}")
-                break
+
+async def create_compact_translation_dropdown(message_idx, original_text, detected_lang):
+    translation_key = f"trans_{message_idx}"
+    expand_key = f"expand_{message_idx}"
+    
+    # Initialize expand state if not present
+    if expand_key not in st.session_state:
+        st.session_state[expand_key] = False
+    
+    # Convert detected_lang to code if it's a full language name
+    if detected_lang in LANGUAGES.values():
+        detected_lang = [k for k, v in LANGUAGES.items() if v == detected_lang][0]
+    
+    col1, col2 = st.columns([5, 1])
+    
+    with col2:
+        # Add a button to toggle translation options
+        if st.button("Translate", key=f"btn_{message_idx}"):
+            st.session_state[expand_key] = not st.session_state[expand_key]
+        
+        # Only show language selection if expanded
+        if st.session_state[expand_key]:
+            lang_options = {
+                detected_lang: f" {LANGUAGES.get(detected_lang, 'Original')}",
+                'hi': ' Hindi',
+                'en': ' English'
+            }
+            
+            # Remove duplicates if detected language is already English or Hindi
+            if detected_lang in ['en', 'hi']:
+                lang_options.pop(detected_lang)
+            
+            selected_lang = st.selectbox(
+                "Select Language",
+                options=list(lang_options.keys()),
+                format_func=lambda x: lang_options[x],
+                key=translation_key,
+                label_visibility="collapsed"
+            )
+            
+            if selected_lang != detected_lang:
+                # Check if translation already exists in session state
+                cached_translation = st.session_state.translations.get(f"{translation_key}_{selected_lang}")
+                if cached_translation:
+                    return cached_translation
+                    
+                try:
+                    translator = Translator()
+                    result = await translator.translate(
+                        original_text,
+                        src=detected_lang,
+                        dest=selected_lang
+                    )
+                    # Cache the translation
+                    st.session_state.translations[f"{translation_key}_{selected_lang}"] = result.text
+                    return result.text
+                except Exception as e:
+                    logger.error(f"Translation error: {str(e)}")
+                    return original_text
+                
+    return original_text
 
 def main():
     st.set_page_config(
@@ -275,7 +451,7 @@ def main():
     
     # Initialize session state
     if 'cache' not in st.session_state:
-        st.session_state.cache = GeminiContextCache()
+        st.session_state.cache = EnhancedGeminiContextCache()
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = []
     if 'temp_files' not in st.session_state:
@@ -288,6 +464,12 @@ def main():
         st.session_state.system_instruction = "Analyze the provided files and answer questions about them."
     if 'ttl_minutes' not in st.session_state:
         st.session_state.ttl_minutes = 10
+    if 'translations' not in st.session_state:
+        st.session_state.translations = {}
+    if 'audio_recorder' not in st.session_state:
+        st.session_state.audio_recorder = AudioRecorder()
+    if 'is_recording' not in st.session_state:
+        st.session_state.is_recording = False
 
     # Sidebar configuration (keep previous file and translation settings)
     with st.sidebar:
@@ -334,7 +516,7 @@ def main():
         #     options=list(LANGUAGES.keys()),
         #     format_func=lambda x: f"{x} - {LANGUAGES[x]}"
         # )
-        st.session_state.enable_tts = st.checkbox("Enable Text-to-Speech")
+        # st.session_state.enable_tts = st.checkbox("Enable Text-to-Speech")
 
     # Main interface
     st.title("AI Assistant with Speech & Translation")
@@ -342,23 +524,30 @@ def main():
     # Chat container
     chat_container = st.container()
     with chat_container:
-        for msg in st.session_state.chat_history:
+        for idx, msg in enumerate(st.session_state.chat_history):
             with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
-                if msg.get("audio"):
-                    st.audio(msg["audio"], format="audio/mp3")
+                if msg["role"] == "assistant":
+                    st.markdown(msg["content"])
+                    
+                    # Only add translation dropdown for assistant messages
+                    translated_text = st.session_state.cache.run_async(
+                        create_compact_translation_dropdown(
+                            idx,
+                            msg["content"],
+                            msg.get("detected_language", "en")[:2].lower()
+                        )
+                    )
+                    
+                    if translated_text != msg["content"]:
+                        st.markdown(translated_text)
+                    
+                    if msg.get("audio"):
+                        st.audio(msg["audio"], format="audio/mp3")
+                else:
+                    st.markdown(msg["content"])
 
 
     # Input container with voice recording
-    if 'is_recording' not in st.session_state:
-        st.session_state.is_recording = False
-    if 'audio_thread' not in st.session_state:
-        st.session_state.audio_thread = None
-    if 'stop_recording' not in st.session_state:
-        st.session_state.stop_recording = threading.Event()
-    if 'audio_queue' not in st.session_state:
-        st.session_state.audio_queue = queue.Queue()
-
     with st.container():
         col1, col2 = st.columns([4, 1])
 
@@ -369,50 +558,30 @@ def main():
             if not st.session_state.cache.general_model:
                 st.button("🎤 Record", disabled=True, help="Please configure API key first")
             else:
-                button_text = "🛑 Stop Recording" if st.session_state.is_recording else "🎤 Start Recording"
-                if st.button(button_text):
-                    if not st.session_state.is_recording:
-                        # Start recording
-                        st.session_state.is_recording = True
-                        st.session_state.stop_recording.clear()
-                        st.session_state.audio_queue = queue.Queue()
-                        st.session_state.audio_thread = threading.Thread(
-                            target=record_audio,
-                            args=(st.session_state.audio_queue, st.session_state.stop_recording)
-                        )
-                        st.session_state.audio_thread.start()
-                        st.info("Recording started... Press the button again to stop.")
-                        st.rerun()
-                    else:
-                        # Stop recording and process audio
-                        st.session_state.stop_recording.set()
-                        if st.session_state.audio_thread:
-                            st.session_state.audio_thread.join()
-                        
-                        # Process all audio segments
-                        full_text = []
-                        while not st.session_state.audio_queue.empty():
-                            audio = st.session_state.audio_queue.get()
-                            with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:
-                                tmp_file.write(audio.get_wav_data())
-                                audio_path = tmp_file.name
+                button_label = "🎤 Stop Recording" if st.session_state.is_recording else "🎤 Start Recording"
+                if st.button(button_label):
+                    try:
+                        if st.session_state.is_recording:
+                            # Stop recording
+                            st.session_state.is_recording = False
+                            audio_path = st.session_state.audio_recorder.stop_recording()
+                            if audio_path:
                                 st.session_state.temp_files.append(audio_path)
-                                
-                                try:
-                                    text = recognize_speech(audio_path)
-                                    if text:
-                                        full_text.append(text)
-                                except Exception as e:
-                                    st.error(f"Error processing audio segment: {str(e)}")
-                        
-                        if full_text:
-                            combined_text = " ".join(full_text)
-                            st.session_state.chat_history.append({"role": "user", "content": combined_text})
-                        
-                        # Reset recording state
+                                text = recognize_speech(audio_path)
+                                if text:
+                                    st.session_state.chat_history.append({"role": "user", "content": text})
+                                    st.rerun()
+                                else:
+                                    st.error("Could not recognize speech. Please try again.")
+                        else:
+                            # Start recording
+                            st.session_state.is_recording = True
+                            st.session_state.audio_recorder.start_recording()
+                            st.info("Recording... Press button again to stop")
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"Error recording audio: {str(e)}")
                         st.session_state.is_recording = False
-                        st.rerun()
-      
 
     # Handle text input
     if prompt:
@@ -427,14 +596,30 @@ def main():
         
         with st.spinner("Processing..."):
             use_files = any(keyword in user_input.lower() for keyword in ['file', 'document', 'page'])
-            response = st.session_state.cache.query_model(
-                user_input, 
-                st.session_state.chat_history,
-                use_files=use_files or bool(st.session_state.current_cache))
+            
+            # Use the new multilingual pipeline
+            response = st.session_state.cache.run_async(
+                st.session_state.cache.process_multilingual_query(
+                    user_input,
+                    st.session_state.chat_history,
+                    use_files=use_files or bool(st.session_state.current_cache)
+                )
+            )
             
             if response['text']:
-                response_data = {"role": "assistant", "content": response['text']}
+                original_text = response['text']
+                detected_lang = response.get('detected_language', 'en').lower()[:2]
+                
+                response_data = {
+                    "role": "assistant",
+                    "content": original_text,
+                    "detected_language": response.get('detected_language', 'Unknown')
+                }
+                if response.get('audio_path'):
+                    response_data["audio"] = response['audio_path']
+                
                 st.session_state.chat_history.append(response_data)
+                
                 st.rerun()
     # Cleanup
     for file in st.session_state.temp_files:
