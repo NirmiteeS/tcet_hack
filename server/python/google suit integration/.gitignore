@@ -1,0 +1,7 @@
+credentials.json
+token.json
+venv
+.env
+node_modules
+__pycache__
+scheduler.db
