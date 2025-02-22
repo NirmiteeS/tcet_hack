@@ -84,19 +84,19 @@ export default function Hero() {
       </div>
 
       <div className="absolute inset-0 z-0 opacity-30">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-400 via-indigo-500 to-purple-600 animate-gradient-x"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-400 via-indigo-500 to-gray-800 animate-gradient-x"></div>
       </div>
 
       <div className="absolute top-6 right-6 gap-4 flex items-center z-10">
         <button
           onClick={handleLogin}
-          className="px-5 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-all shadow-lg"
+          className="px-5 py-2 bg-blue-800 hover:bg-blue-700  bg-gradient-to-r from-blue-700 to-gray-800 text-white rounded-full hover:from-blue-700 hover:to-purple-700 duration-300 hover:shadow-xl transition-all shadow-lg"
         >
           Login
         </button>
         <button
           onClick={handleGetStarted}
-          className="px-5 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-all shadow-lg"
+          className="px-5 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 bg-gradient-to-r from-blue-600 to-gray-800 hover:from-blue-700 hover:to-purple-700 duration-300 hover:shadow-xl transition-all shadow-lg"
         >
           Sign In
         </button>
@@ -111,7 +111,7 @@ export default function Hero() {
             transition={{ duration: 0.6 }}
           >
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
-              AI-Powered Platform
+              FlowAI
             </h1>
             <h2 className="text-2xl md:text-3xl font-semibold mb-6 text-gray-700 dark:text-gray-300">
               Intelligent Communication & Workflow Enhancement
@@ -124,7 +124,7 @@ export default function Hero() {
             <motion.button
               
               onClick={handleGetStarted}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-gray-800 text-white rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
@@ -140,8 +140,7 @@ export default function Hero() {
             transition={{ duration: 0.6, delay: 0.2 }}
           >
             <div className="relative w-72 h-72 md:w-96 md:h-96 mx-auto">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 dark:from-blue-600 dark:to-purple-600 rounded-3xl transform rotate-6 opacity-50"></div>
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-blue-400 dark:from-purple-600 dark:to-blue-600 rounded-3xl transform -rotate-6 opacity-50"></div>
+              <img src="https://www.iconarchive.com/download/i138008/microsoft/fluentui-emoji-3d/Robot-3d.1024.png" alt="" />
               <div className="relative rounded-2xl overflow-hidden shadow-2xl">
                 {/* <img
                   src=""

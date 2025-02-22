@@ -1,5 +1,5 @@
 [theme]
-primaryColor="#a8d2fa"
-backgroundColor="#101828"
-secondaryBackgroundColor="#0C1738"
-textColor="#ffffff"
+primaryColor = "#1a365d"               # Rich Navy Blue (Primary Buttons & Highlights)
+backgroundColor = "#0f172a"            # Deep Dark Blue (Main Background)
+secondaryBackgroundColor = "#1e293b"   # Steel Blue (Cards, Panels)
+textColor = "#f1f5f9"                  # Crisp Blue-White (Primary Text)

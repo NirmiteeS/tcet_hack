@@ -56,10 +56,10 @@ export default function Email() {
   return (
     <div className="w-[1280px] flex">
       {/* Email Section */} 
-      <div className="h-screen w-1/3 bg-white shadow-lg rounded-lg overflow-hidden border-r">
+      <div className="h-screen w-1/3 bg-white overflow-hidden border-r">
         {!selectedEmail ? (
           <>
-            <div className="bg-gray-100 px-4 py-3 border-b">
+            <div className="bg-gray-400 px-4 py-4 border-b ">
               <h2 className="text-lg font-semibold text-gray-800">Inbox</h2>
             </div>
             <div className="divide-y divide-gray-200 overflow-y-auto" style={{ maxHeight: "calc(100vh - 3rem)" }}>
@@ -112,8 +112,8 @@ export default function Email() {
       </div>
 
       {/* Tasks Section */}
-      <div className="h-screen w-2/3 bg-white shadow-lg rounded-lg overflow-hidden">
-        <div className="bg-gray-100 px-4 py-3 border-b flex justify-between items-center">
+      <div className="h-screen w-3/5 bg-white  overflow-hidden">
+        <div className="bg-gray-400 px-4 py-3 border-b flex justify-between items-center">
           <h2 className="text-lg font-semibold text-gray-800">Tasks</h2>
           <Button onClick={handleClick} >Add to Notion</Button>
         </div>

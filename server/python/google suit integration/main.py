@@ -35,9 +35,8 @@ SCOPES = [
     'https://www.googleapis.com/auth/gmail.send',
     'https://www.googleapis.com/auth/gmail.modify',
     'https://www.googleapis.com/auth/calendar',
-    'https://www.googleapis.com/auth/drive.file',
+    'https://www.googleapis.com/auth/drive',
     'https://www.googleapis.com/auth/documents'
-
 ]
 
 # Initialize Ray once
@@ -136,11 +135,48 @@ async def create_google_doc(request: GoogleDocsRequest):
     try:
         creds = Credentials.from_authorized_user_file("token.json", SCOPES)
         service = build("docs", "v1", credentials=creds)
+        drive_service = build("drive", "v3", credentials=creds)
+        
+        # Create the document
         document = service.documents().create(body={"title": request.title}).execute()
         doc_id = document.get("documentId")
+        
+        # Insert content
         requests = [{"insertText": {"location": {"index": 1}, "text": request.content}}]
         service.documents().batchUpdate(documentId=doc_id, body={"requests": requests}).execute()
-        return {"document_id": doc_id, "message": "Google Doc created successfully"}
+        
+        # Get document link
+        doc_link = f"https://docs.google.com/document/d/{doc_id}/edit"
+        
+        # Retry getting thumbnail up to 3 times with a delay
+        max_retries = 3
+        thumbnail = None
+        
+        for attempt in range(max_retries):
+            # Get document metadata including thumbnail
+            file_metadata = drive_service.files().get(
+                fileId=doc_id, 
+                fields="id, name, thumbnailLink, webViewLink"
+            ).execute()
+            
+            thumbnail = file_metadata.get("thumbnailLink")
+            if thumbnail:
+                break
+                
+            # Wait before retrying (increasing delay with each attempt)
+            await asyncio.sleep((attempt + 1) * 1)
+        
+        if not thumbnail:
+            # If still no thumbnail, use a default Google Docs icon
+            thumbnail = "https://drive-thirdparty.googleusercontent.com/128/type/application/vnd.google-apps.document"
+        
+        return {
+            "document_id": doc_id,
+            "title": request.title,
+            "link": doc_link,
+            "thumbnail": thumbnail,
+            "message": "Google Doc created successfully"
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -374,4 +410,3 @@ def startup_event():
     except Exception as e:
         logger.error(f"Error starting email listener thread: {e}")
         # Don't raise here, just log the error to prevent app startup failure
-        

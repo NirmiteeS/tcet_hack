@@ -262,7 +262,7 @@ export default function VideoCall() {
             type="submit"
             style={{
               padding: '0.5rem 1rem',
-              backgroundColor: '#4CAF50',
+              backgroundColor: '#2563eb',
               color: 'white',
               border: 'none',
               borderRadius: '4px',

@@ -1,0 +1,5 @@
+[theme]
+primaryColor = "#7289B1"               # Rich Navy Blue (Primary Buttons & Highlights)
+backgroundColor = "#1e293b"            # Deep Dark Blue (Main Background)
+secondaryBackgroundColor = "#506485"   # Steel Blue (Cards, Panels)
+textColor = "#f1f5f9"                  # Crisp Blue-White (Primary Text)

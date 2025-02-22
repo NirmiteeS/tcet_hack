@@ -5,7 +5,7 @@ const SignUpPage = () => {
 
   return (
     <div className="flex justify-center items-center h-screen">
-        <SignUp forceRedirectUrl="/dashboard" />
+        <SignUp forceRedirectUrl="/documents" />
     </div>
   )
 }
